@@ -1,13 +1,11 @@
 import argparse
 import requests
-from bs4 import BeautifulSoup
 import json
 import datetime
+import textwrap
+from bs4 import BeautifulSoup
 
-DEBUG_MODE = True
-
-# TODO エラー処理考える
-
+# コマンドラインからの引数を格納
 parser = argparse.ArgumentParser()
 parser.add_argument('--id', help='Booklog user id',type=str,required=True)
 parser.add_argument('--year', help='Year of registration',type=int,required=True)
@@ -23,23 +21,16 @@ api_res=requests.get(f"https://api.booklog.jp/v2/json/{user_id}?count=100")
 json_res=json.loads(api_res.text)
 books=json_res['books']
 
-if DEBUG_MODE:
-    print(books)
-
 #本の情報を取得
+new_book_list = []
 for book in books:
     html = requests.get(book['url'])
     soup = BeautifulSoup(html.content, "html.parser")
 
     register_date = soup.find(class_='read-day-status-area').find('span').text
-    
-    if DEBUG_MODE:
-        print(register_date)
-
     register_date = datetime.datetime.strptime(register_date, '%Y年%m月%d日')
 
     #入力した月に登録した本のみ登録
-    new_book_list = []
     if register_date.year == year and register_date.month == month:
 
         #著者は複数人いる場合がある
@@ -52,7 +43,15 @@ for book in books:
         }
         new_book_list.append(new_book)
 
-if DEBUG_MODE:
-    print(new_book_list)
+# 新刊リストがったら
+if not new_book_list:
+    # markdownのテーブル型式でリストを作成
+    new_book_table = (
+        '|  タイトル  |  著者  |  表紙  |\n'
+        '| ------ | ------ | ------ |\n'
+    )
 
-# TODO markdownのテーブル型式でリストを作成する。長いタイトル、著者名は...で表示する
+    #TODO textwrap.shorten(str, length, placeholder='...') の利用を考える
+    for book in new_book_list:
+        new_book_line = f"|  {book['title']}  |  {book['author']}  |  ![{book['title']}]({book['book_cover']} ) |\n"
+        new_book_table+= new_book_line
